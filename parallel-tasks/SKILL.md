@@ -32,16 +32,12 @@ description: >
 
 ---
 
-## Step 2：读取 Spec 分析依赖
+## Step 2：读取任务表分析依赖
 
 对每个未完成任务：
-1. 读取对应 spec 文件
-2. 从 spec 的「实现要点」和「关键现有代码」中提取依赖信息：
-   - **显式依赖**：spec 中明确提及"依赖 INT-C-001"或"需要 XXX 先完成"
-   - **隐式依赖**：spec 的「关键现有代码」引用了另一个 spec 将要产出的文件
-   - **接口依赖**：spec 需要使用另一个 spec 定义的接口/类/枚举
-
-3. 构建依赖图（DAG）：
+1. 优先读取任务拆解表中的 `前置依赖` 列，直接提取依赖关系（如 `MAP-C-001, MAP-C-002`）。
+2. （向后兼容）如果旧表没有该列，或者需要更精确的接口级确认，则回退/补充旧策略：读取对应 spec 文件，从「实现要点」和「关键现有代码」中推断隐式/显式依赖。
+3. 构建有向无环依赖图（DAG）：
    ```
    {taskId} → [dependsOn: taskId[]]
    ```
@@ -111,16 +107,32 @@ Wave 4（串行）:
 **Wave 1**：直接基于当前主分支开始。
 **Wave N（N>1）**：必须在上一 Wave 合并完成后，基于最新主分支创建 worktree。这确保每个 agent 能引用前序 Wave 产出的接口/类。
 
-### 5b. 分派 Agents
+### 5b. 分派 Agents (兼容 agy / claude 双引擎与大小模型协同)
 
-对当前 Wave 的每个任务，使用 Agent 工具并行派发：
+主控 Session 需识别当前的运行环境，并根据任务的 `类型` 列动态路由到对应的物理模型，以平衡成本与质量。
 
-**Agent 配置：**
-- `subagent_type`: `agent-slg-dev`
-- `isolation`: `worktree`（每个 agent 在独立 worktree 工作，避免冲突）
-- `run_in_background`: `true`（并行执行）
+**模型路由规则：**
+- **高级模型**：处理 `底层框架`、`复杂业务逻辑`、`调试/验收` 等任务。
+- **低级模型**：处理 `配置`、`工具`、`UI 视图` 等周边和单点脏活。
 
-**Agent Prompt 模板：**
+#### 环境 A：在 Antigravity (agy) 引擎下
+对本波次的每个任务，调用内置的 `invoke_subagent` 工具执行并发派发：
+- `Workspace`: `share`（自动利用底层类似 worktree 的隔离沙盒）。
+- `TypeName`: 根据路由规则，分配到对应的类型如 `agent-slg-dev-pro` (高级) 或 `agent-slg-dev-basic` (低级)。（若项目未细分该类别，则统一走 `agent-slg-dev`）。
+- **运行方式**：利用工具的并发调用特性，直接并行派发。
+
+#### 环境 B：在 Claude Code 引擎下
+由于缺乏内置 Subagent API，主控需转变为“Shell 脚本调度者”角色：
+1. 建立独立沙盒：对本波每个任务，执行 `git worktree add ../worktree-{taskId}`。
+2. 并发拉起 CLI：进入各目录，根据模型路由追加 `--model` 参数（如 Sonnet 或 Haiku），并使用 `&` 放入后台执行：
+   ```bash
+   cd ../worktree-001 && claude -p "{Prompt内容}" --model claude-3-5-haiku-20241022 &
+   cd ../worktree-002 && claude -p "{Prompt内容}" --model claude-3-5-sonnet-20241022 &
+   wait
+   ```
+3. 执行 `wait` 等待所有进程结束后，进行后续合并。
+
+**通用 Agent Prompt 模板（传给上述底层进程）：**
 
 ```
 你正在执行任务 {taskId}。
@@ -299,9 +311,9 @@ git branch | grep worktree-agent | xargs git branch -d
 
 ---
 
-## 依赖推断规则
+## 依赖推断规则（降级策略）
 
-当 spec 中没有显式标注依赖时，按以下规则推断：
+当任务拆解表中没有 `前置依赖` 列，或 spec 中没有显式标注依赖时，按以下规则推断隐式依赖：
 
 | 模式 | 推断依赖 |
 |------|---------|
