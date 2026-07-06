@@ -107,26 +107,39 @@ Wave 4（串行）:
 **Wave 1**：直接基于当前主分支开始。
 **Wave N（N>1）**：必须在上一 Wave 合并完成后，基于最新主分支创建 worktree。这确保每个 agent 能引用前序 Wave 产出的接口/类。
 
-### 5b. 分派 Agents (兼容 agy / claude 双引擎与大小模型协同)
+### 5b. 获取可用模型池 (Model Discovery)
 
-主控 Session 需识别当前的运行环境，并根据任务的 `类型` 列动态路由到对应的物理模型，以平衡成本与质量。
+在派发任何任务前，主控 Session 必须通过命令行（如 `agy models`）或系统指令获取当前环境内**所有可使用的模型列表**。
+根据返回的模型池，**主控需自主评估并挑选出三个档次的模型**（若资源有限可向下合并）：
+1. **顶级算力（Ultra-tier）**：挑选参数量最大、推理能力最强的旗舰模型（如 Gemini Pro / Claude Sonnet 级别）。
+2. **中坚算力（Mid-tier）**：挑选速度和智能较为均衡的模型（如参数量适中的通用模型）。
+3. **极速算力（Fast-tier）**：挑选速度极快、成本极低的基础模型（如 Gemini Flash / Claude Haiku 级别）。
 
-**模型路由规则：**
-- **高级模型**：处理 `底层框架`、`复杂业务逻辑`、`调试/验收` 等任务。
-- **低级模型**：处理 `配置`、`工具`、`UI 视图` 等周边和单点脏活。
+将这三个模型暂存在主控的上下文中，供后续调度使用。
+
+### 5c. 分派 Agents (兼容 agy / claude 双引擎与三级模型协同)
+
+主控 Session 需识别当前的运行环境，并根据任务的 `类型` 列动态路由到 5b 中挑选出的物理模型，以追求极致的性价比。
+
+**三级模型路由规则：**
+- **Ultra-tier (顶级)**：分配给 `底层框架`、`调试/验收` 等对架构理解和全局纠错要求极高的任务。
+- **Mid-tier (中坚)**：分配给 `复杂业务逻辑`，用于常规 Controller 和机制的具体实现。
+- **Fast-tier (极速)**：分配给 `配置`、`UI 视图`、`工具` 等周边和单点填表任务。
 
 #### 环境 A：在 Antigravity (agy) 引擎下
 对本波次的每个任务，调用内置的 `invoke_subagent` 工具执行并发派发：
 - `Workspace`: `share`（自动利用底层类似 worktree 的隔离沙盒）。
-- `TypeName`: 根据路由规则，分配到对应的类型如 `agent-slg-dev-pro` (高级) 或 `agent-slg-dev-basic` (低级)。（若项目未细分该类别，则统一走 `agent-slg-dev`）。
+- `TypeName`: 根据路由规则，分配到对应的类型如 `agent-slg-dev-ultra` / `agent-slg-dev-mid` / `agent-slg-dev-fast`。（若项目未细分该类别，则统一走 `agent-slg-dev`）。
 - **运行方式**：利用工具的并发调用特性，直接并行派发。
 
 #### 环境 B：在 Claude Code 引擎下
 由于缺乏内置 Subagent API，主控需转变为“Shell 脚本调度者”角色：
 1. 建立独立沙盒：对本波每个任务，执行 `git worktree add ../worktree-{taskId}`。
-2. 并发拉起 CLI：进入各目录，根据模型路由追加 `--model` 参数（如 Sonnet 或 Haiku），并使用 `&` 放入后台执行：
+2. 并发拉起 CLI：进入各目录，根据三级路由规则追加对应的 `--model` 参数，并使用 `&` 放入后台执行：
    ```bash
+   # 例：UI 任务分配给极速模型
    cd ../worktree-001 && claude -p "{Prompt内容}" --model claude-3-5-haiku-20241022 &
+   # 例：底层框架分配给顶级模型
    cd ../worktree-002 && claude -p "{Prompt内容}" --model claude-3-5-sonnet-20241022 &
    wait
    ```
