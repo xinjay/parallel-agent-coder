@@ -293,7 +293,7 @@ git branch | grep worktree-agent | xargs git branch -d
 - **编译守门**：每个 Wave 合并后必须通过编译验证才能继续
 - **Git Commit 强制**：每个 agent 完成任务且编译通过后必须 commit，格式 `feat: {标题} [Agent]`
 - **合并策略**：Wave 合并使用 `merge --no-ff`，保留每个任务的独立 commit 历史
-- **策划案只读**：任何情况下不修改 `策划案/` 目录下的文件
+- **策划案只读**：任何情况下不修改任何策划相关目录（如 `策划文档/`、`策划案/` 及其子目录）下的文件
 - **spec 引用不猜测**：agent prompt 中必须包含实际 spec 路径，不使用占位符
 - **单 Wave 上限 4 agents**：受并行 context 限制，超过需分批
 
