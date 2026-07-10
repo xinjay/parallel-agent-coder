@@ -61,12 +61,12 @@ description: >
 ═══ 并行执行计划 ═══
 
 Wave 1（并行）:
-  ├─ INT-C-001 数据层接口与结构 (0.2d)
-  └─ INT-C-004 集成点改造 (0.2d)
+  ├─ INT-C-001 数据层接口与结构 (0.2d) [Ultra-tier: Gemini 1.5 Pro]
+  └─ INT-C-004 集成点改造 (0.2d) [Fast-tier: Gemini Flash]
 
 Wave 2（并行，依赖 Wave 1）:
-  ├─ INT-C-002 控制器 (0.3d) ← 依赖 001
-  └─ INT-C-003 显示层 (0.5d) ← 依赖 001
+  ├─ INT-C-002 控制器 (0.3d) ← 依赖 001 [Mid-tier]
+  └─ INT-C-003 显示层 (0.5d) ← 依赖 001 [Mid-tier]
 
 Wave 3（并行，依赖 Wave 2）:
   ├─ INT-C-005 世界地图集成 (0.3d) ← 依赖 002,003,004
@@ -130,6 +130,7 @@ Wave 4（串行）:
 对本波次的每个任务，调用内置的 `invoke_subagent` 工具执行并发派发：
 - `Workspace`: `share`（自动利用底层类似 worktree 的隔离沙盒）。
 - `TypeName`: 根据路由规则，分配到对应的类型如 `agent-slg-dev-ultra` / `agent-slg-dev-mid` / `agent-slg-dev-fast`。（若项目未细分该类别，则统一走 `agent-slg-dev`）。
+- `Role`: **必须在展示名中明确包含所分配的具体模型名称**（例如：`INT-C-001 (Gemini 1.5 Pro)` 或 `UI 调整 (Gemini Flash)`），以便用户在 UI 会话列表中直观区分每个 Subagent 的算力级别。
 - **运行方式**：利用工具的并发调用特性，直接并行派发。
 
 #### 环境 B：在 Claude Code 引擎下
