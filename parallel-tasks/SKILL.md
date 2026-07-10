@@ -100,11 +100,13 @@ Wave 4（串行）:
 
 ### 5b. 预申请前置权限 (Pre-grant Permissions)
 
-**非常重要：** 由于底层的安全沙盒机制，在后台静默运行的子 Agent 无法弹出权限确认框，缺乏权限时会直接报错奔溃。因此，在每次派发 Wave 的子 Agent 之前，**主控必须**主动调用一次 `ask_permission` 工具，提前为子 Agent 申请好当前工程所需的关键权限（由于权限申请需要用户点击，请合并在一次工具调用中发出）：
-- `Action: write_file`, `Target: {WorkspaceRoot}`
-- `Action: command`, `Target: *` (允许子 Agent 自由执行 git commit 和编译脚本)
+**非常重要：** 由于底层的安全沙盒机制，在后台静默运行的子 Agent 无法弹出权限确认框，缺乏权限时会直接报错奔溃。因此，在每次派发 Wave 的子 Agent 之前，**主控必须**主动使用 `ask_permission` 工具，提前为子 Agent 申请好当前工程所需的关键权限（由于权限申请需要用户点击，请利用并发工具调用能力，在同一轮交互中并发发起多个 `ask_permission` 请求）：
+- `Action: write_file`, `Target: {WorkspaceRoot绝对路径}` (提供当前工作区的完整绝对路径)
+- `Action: command`, `Target: git` (允许子 Agent 自由执行 git commit 等)
+- `Action: command`, `Target: bash` (如果需要执行编译脚本如 bash .claude/verify-compile.sh)
+- **严禁**使用 `Target: *` 通配符申请 command 权限，必须明确列出所需要的具体命令前缀（如 `git`, `bash`, `dotnet` 等）。
 
-如果检查当前权限（通过 `list_permissions`）发现已经拥有 allowed 状态，则可跳过申请。
+如果检查当前权限（通过 `list_permissions`）发现已经拥有 allowed 状态，则可跳过对应申请。
 
 ### 5c. 获取可用模型池 (Model Discovery)
 
@@ -126,9 +128,11 @@ Wave 4（串行）:
 - **Fast-tier (极速)**：分配给 `配置`、`UI 视图`、`工具` 等周边和单点填表任务。
 
 #### 环境 A：在 Antigravity (agy) 引擎下
-对本波次的每个任务，调用内置的 `invoke_subagent` 工具执行并发派发：
+由于系统目前存在读取静态 `.md` Agent 时忽略写入权限的 Bug，并且考虑到不同档次的 Agent 提示词高度重合，我们采用“**读取单一基础模板并衍生注册**”的方式动态加载：
+1. **读取单模板并动态注册 (绕开限制)**：在派发前，**主控必须**使用 `view_file` 工具去 `E:\Project\slg\.agents\agent_templates\` 目录下读取唯一的公共基础模板 `agent-slg-dev-base.md`，提取其系统提示词正文。然后使用 `define_subagent` 工具，根据当前需要的档次在内存中动态注册对应的 Agent（分别命名为 `agent-slg-dev-ultra`、`agent-slg-dev-mid` 或 `agent-slg-dev-fast`）。**除了常规参数和强制设置 `enable_write_tools = true` 外，必须额外向工具传入隐藏参数 `"model"`**（Ultra 档传入 `"Gemini 3.1 Pro (High)"`，Mid 档传入 `"Gemini 3.1 Pro (Low)"`，Fast 档传入 `"Gemini 3.5 Flash (Medium)"`），以确保子 Agent 被分配到低价算力。
+2. 对本波次的每个任务，调用内置的 `invoke_subagent` 工具执行并发派发：
 - `Workspace`: `share`（自动利用底层类似 worktree 的隔离沙盒）。
-- `TypeName`: 根据路由规则，分配到对应的类型如 `agent-slg-dev-ultra` / `agent-slg-dev-mid` / `agent-slg-dev-fast`。（若项目未细分该类别，则统一走 `agent-slg-dev`）。
+- `TypeName`: 必须使用刚才动态注册的原名称（如 `agent-slg-dev-ultra`）。
 - `Role`: **必须在展示名中明确包含所分配的具体模型名称**（例如：`INT-C-001 (Gemini 1.5 Pro)` 或 `UI 调整 (Gemini Flash)`），以便用户在 UI 会话列表中直观区分每个 Subagent 的算力级别。
 - **运行方式**：利用工具的并发调用特性，直接并行派发。
 
