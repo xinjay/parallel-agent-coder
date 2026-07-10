@@ -4,7 +4,7 @@ description: >
   Analyze remaining tasks from a task decomposition table, build a dependency graph,
   propose parallel execution waves, then dispatch multiple agents concurrently.
   Triggers on: /parallel-tasks {system-prefix} or /parallel-tasks {table-path}.
-  Example: /parallel-tasks INT or /parallel-tasks E:/Project/任务拆解/通用/地图单元交互式/任务拆解表_交互式气泡_20260611.md
+  Example: /parallel-tasks INT or /parallel-tasks 任务拆解/通用/地图单元交互式/任务拆解表_交互式气泡_20260611.md
 ---
 
 # /parallel-tasks — 并行任务编排与执行
@@ -22,10 +22,10 @@ description: >
 
    | 系统前缀 | 任务拆解表位置 |
    |---------|--------------|
-   | MAP | `E:/Project/任务拆解/大地图/任务拆解表_大地图_20260514.md` |
-   | PLT | `E:/Project/任务拆解/城建/任务拆解表_城建地块解锁_20260519.md` |
-   | SCN | `E:/Project/任务拆解/场景/任务拆解表_场景切换_20260604.md` |
-   | INT | `E:/Project/任务拆解/通用/地图单元交互式/任务拆解表_交互式气泡_20260611.md` |
+   | MAP | `任务拆解/大地图/任务拆解表_大地图_20260514.md` |
+   | PLT | `任务拆解/城建/任务拆解表_城建地块解锁_20260519.md` |
+   | SCN | `任务拆解/场景/任务拆解表_场景切换_20260604.md` |
+   | INT | `任务拆解/通用/地图单元交互式/任务拆解表_交互式气泡_20260611.md` |
 
 3. 读取任务拆解表，提取所有状态非 `100%` 的任务行。
 4. 如果所有任务已完成，提示用户并退出。
