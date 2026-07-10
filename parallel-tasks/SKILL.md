@@ -173,6 +173,10 @@ Wave 4（串行）:
 - 如果编译未通过，不得 commit，报告错误等待主 session 处理
 
 ## 强制规范
+- **【全局约定】**在动手前必须读取并严格遵守当前项目的全局 AI 约定（如 `AGENTS.md`）。
+- **【专业技能引用】**如果是特定领域的开发任务（如 UI、配置表、战斗框架、TA等），必须先主动查阅并严格遵守项目中对应的专业 Skill（如 `slg-ui-edit`、`slg-config-edit`、`slg-battle-dev` 等）的工作流规范。
+- **【通用性】**在实现中如识别到具备通用性的逻辑，必须抽象为接口或通用工具类，严禁与当前业务强耦合。
+- **【单测驱动】**如果 Spec 要求了单元测试，必须为核心逻辑编写单测，并在提交前确保测试运行通过。
 - 异步使用 UniTask，禁止 Coroutine/Task
 - Module 访问通过 ModuleContext
 - 配置表字段必须查阅 Configs/Gen/ 生成代码
@@ -207,12 +211,13 @@ Wave 4（串行）:
 
 ### 5e. Wave 间过渡（L2 验收）
 
-当前 Wave 全部成功后：
-1. 合并所有 worktree 分支到主分支（merge --no-ff 保留 commit 历史）
-2. 执行编译验证（`bash .claude/verify-compile.sh`）
-3. **接口衔接检查**：确认本 Wave 产出的类/接口能被下一 Wave 正确引用
-4. 向用户报告 Wave 完成状态（含各任务 commit hash）
-5. 询问是否继续下一 Wave
+当前 Wave 的所有 agent 均宣称完成后：
+1. **统一 Code Review**：主 session 唤起 `agent-quality-checker` 子 Agent，触发 `slg-code-review` 技能，对本 Wave 产出的各个分支代码进行两阶段审查。审查不通过则打回修复。
+2. **安全合并**：Review 全部通过后，将所有 worktree 分支合并到主分支（merge --no-ff 保留 commit 历史）。
+3. **编译验证**：执行合并后的编译验证（如 `bash .claude/verify-compile.sh`）。
+4. **接口衔接检查**：确认本 Wave 产出的类/接口能被下一 Wave 正确引用。
+5. **单元测试检查**：如果本 Wave 产出了单测，执行测试并确认全部通过。
+6. 向用户报告 Wave 完成状态（含各任务 commit hash），询问是否继续下一 Wave。
 
 ---
 
@@ -251,9 +256,16 @@ Git commits：7 commits on branch feat/xxx
 偏差详情：INT-C-006 城建场景 BuildBaseData 无 OnSelect 方法，改用 ...
 ```
 
-### 6d. 清理临时 Worktree 和分支（强制）
+### 6d. 全局文档同步与知识沉淀
 
-所有任务验收通过、用户确认没问题后，必须清理所有临时 agent worktree 和对应本地分支：
+在所有 Wave 成功合并并验收通过后，统一调用一次 `slg-doc-sync` skill：
+- 分析本次所有 Wave 带来的系统级变更。
+- 更新相关的 `feature-map`、`system-overview`、`architecture-map` 及相关上下文文档。
+- 如果在评审阶段提炼了新规则，调用 `slg-rules-from-review`。
+
+### 6e. 清理临时 Worktree 和分支（强制）
+
+所有任务验收通过、文档同步完成、用户确认没问题后，必须清理所有临时 agent worktree 和对应本地分支：
 
 ```bash
 # 列出当前所有 worktree，确认要删除的目标
@@ -279,7 +291,7 @@ git branch | grep worktree-agent | xargs git branch -d
 | 级别 | 时机 | 执行者 | 内容 |
 |------|------|--------|------|
 | **L1 Agent 自查** | 每个 agent 完成时（worktree 内） | agent 自身 | 编译通过 + spec 验收标准逐条 + git commit |
-| **L2 Wave 合并验收** | 同 Wave 全部完成、合并到主分支后 | 主 session | 合并编译 + 接口衔接检查 |
+| **L2 Wave 合并验收** | 同 Wave 全部完成合并前后 | Quality Checker & 主 session | Code Review + 合并编译 + 接口衔接 + 单测运行 |
 | **L3 端到端验收** | 所有 Wave 完成后 | 主 session / 验收任务 agent | Play 模式完整流程验证 |
 
 ---
@@ -288,7 +300,7 @@ git branch | grep worktree-agent | xargs git branch -d
 
 - **禁止跳过 Step 4 确认**：未经用户确认不派发 agents
 - **禁止跨 Wave 并行**：必须上一 Wave 全部完成并合并后才开始下一 Wave
-- **Worktree 清理**：所有任务验收通过且用户确认没问题后，必须执行 Step 6d 清理全部临时 worktree 目录和对应本地分支，禁止验收前清理
+- **Worktree 清理**：所有任务验收通过、文档同步完成且用户确认没问题后，必须执行 Step 6e 清理全部临时 worktree 目录和对应本地分支，禁止验收前清理
 - **Worktree 隔离**：同 Wave 的 agents 必须使用独立 worktree，防止文件冲突
 - **编译守门**：每个 Wave 合并后必须通过编译验证才能继续
 - **Git Commit 强制**：每个 agent 完成任务且编译通过后必须 commit，格式 `feat: {标题} [Agent]`

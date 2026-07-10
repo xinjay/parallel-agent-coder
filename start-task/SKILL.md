@@ -57,6 +57,7 @@ description: >
 前置确认：
 - [ ] 依赖任务 {ID} 已完成（如有）
 - [ ] 相关配置表字段已查阅生成代码
+- [ ] 通用性评估：该模块是否有复用价值？是否已提议将通用逻辑抽象为接口/基类？
 ```
 
 用户回复「ok」或「可以」后进入实现。
@@ -65,7 +66,11 @@ description: >
 
 ## Step 4：实现
 
-按 spec「实现要点」逐条执行，遵守 `client/game/CLAUDE.md` 所有规范：
+按 spec「实现要点」逐条执行。在实现前，**强制回顾并严格遵守当前项目的全局 AI 约定（如 `AGENTS.md`）**，严禁引入违反项目架构标准的设计。
+
+**如果该任务属于特定领域（如 UI 拼包、配置表、战斗框架开发），必须先查阅并遵循该领域专属的专业 Skill（如 `slg-ui-edit`、`slg-config-edit` 等）。**
+
+如果 Spec 中要求了单元测试，必须采用 TDD 方式（先写测试，后写实现）。
 
 **强制检查点：**
 - 异步操作使用 UniTask，不用 Coroutine/Task
@@ -84,6 +89,7 @@ refresh_unity(compile="request") → read_console 确认无 error
 ## Step 5：验收自查
 
 对照 spec「验收标准」逐条检查：
+- 如果 Spec 包含单元测试要求，必须确保测试运行 Pass
 - 未通过的项说明原因，视情况修复或标记为已知偏差
 - 全部通过后进入 Step 6
 
@@ -91,11 +97,11 @@ refresh_unity(compile="request") → read_console 确认无 error
 
 ## Step 6：代码 Review
 
-触发 `slg-code-review` skill，完成两阶段审查：
+唤起 `agent-quality-checker` 子 Agent（或由主控亲自执行），触发 `slg-code-review` skill，完成两阶段审查：
 1. spec 符合性审查
-2. 代码质量审查（SLG 项目规范）
+2. 代码质量审查（SLG 项目规范，包含架构与通用性评估）
 
-Review 通过后进入 Step 7。
+如果 Review 发现问题，必须完成修复。Review 彻底通过后才能进入 Step 7。
 
 ---
 
@@ -129,6 +135,14 @@ Review 通过后进入 Step 7。
 | 小偏差（不影响其他任务） | 一句话说明 |
 | 重大偏差（影响后续任务设计） | 说明原因，加 ⚠️，并在任务拆解表备注列注明 |
 | 发现 spec 有错误 | 直接修正 spec 错误描述，不记录为偏差 |
+
+---
+
+## Step 8：AI 文档同步（自动触发）
+
+任务完成且反馈写回后，若涉及核心逻辑或新机制，建议触发 `slg-doc-sync` skill：
+- 分析本次任务的代码变更，更新关联的架构图、feature-map 或 system-overview。
+- 如果本次任务沉淀了新的通用规则，可建议触发 `slg-rules-from-review` 更新工程约束。
 
 ---
 
