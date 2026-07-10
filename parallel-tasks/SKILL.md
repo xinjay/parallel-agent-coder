@@ -129,8 +129,8 @@ Wave 4（串行）:
 #### 环境 A：在 Antigravity (agy) 引擎下
 对本波次的每个任务，调用内置的 `invoke_subagent` 工具执行并发派发：
 - `Workspace`: `share`（自动利用底层类似 worktree 的隔离沙盒）。
-- `TypeName`: 根据路由规则，分配到对应的类型如 `agent-slg-dev-ultra` / `agent-slg-dev-mid` / `agent-slg-dev-fast`。（若项目未细分该类别，则统一走 `agent-slg-dev`）。
-- `Role`: **必须在展示名中明确包含所分配的具体模型名称**（例如：`INT-C-001 (Gemini 1.5 Pro)` 或 `UI 调整 (Gemini Flash)`），以便用户在 UI 会话列表中直观区分每个 Subagent 的算力级别。
+- `TypeName`: 强制统一使用 `self`（以确保子 Agent 完美继承主控的读、写和命令行执行权限，避免报错）。
+- `Role`: **必须在展示名中明确包含所分配的具体角色职级与模型名称**（例如：`Fast-tier 极速档 (Gemini Flash)` 或 `Ultra-tier 核心档 (Gemini 1.5 Pro)`），以便用户在 UI 会话列表中直观区分每个子 Agent 的算力级别。
 - **运行方式**：利用工具的并发调用特性，直接并行派发。
 
 #### 环境 B：在 Claude Code 引擎下
