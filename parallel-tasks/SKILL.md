@@ -126,20 +126,25 @@ Wave 4（串行）:
 - **Mid-tier (中坚)**：分配给 `复杂业务逻辑`，用于常规 Controller 和机制的具体实现。
 - **Fast-tier (极速)**：分配给 `配置`、`UI 视图`、`工具` 等周边和单点填表任务。
 
-### 5c. 分派 Agents (自动规避沙盒权限限制)
+#### 环境 A：在 Antigravity (agy) 引擎下
+对本波次的每个任务，调用内置的 `invoke_subagent` 工具执行并发派发：
+- `Workspace`: `share`（自动利用底层类似 worktree 的隔离沙盒）。
+- `TypeName`: 根据路由规则，分配到对应的类型如 `agent-slg-dev-ultra` / `agent-slg-dev-mid` / `agent-slg-dev-fast`。（若项目未细分该类别，则统一走 `agent-slg-dev`）。
+- `Role`: **必须在展示名中明确包含所分配的具体模型名称**（例如：`INT-C-001 (Gemini 1.5 Pro)` 或 `UI 调整 (Gemini Flash)`），以便用户在 UI 会话列表中直观区分每个 Subagent 的算力级别。
+- **运行方式**：利用工具的并发调用特性，直接并行派发。
 
-**【核心警告】**：由于底层引擎静态加载 Agent 存在权限沙盒 Bug（导致调用 `invoke_subagent` 时子 Agent 写文件权限失效），**绝对禁止使用 `invoke_subagent` 工具执行并发。** 必须通过 `run_command` 调用底层 CLI 物理进程来实现并发，以此绕过沙盒并确保子 Agent 拥有完整的读写和代码执行权限。
-
-根据任务的 `类型`，将任务分配给对应的 Agent 配置文件（`agent-slg-dev-ultra` / `agent-slg-dev-mid` / `agent-slg-dev-fast`）。
-
-**执行方式（独立物理进程调度模式）**：
-对于当前 Wave 中的每一个任务，主控必须为其建立独立的 worktree 沙盒，然后独立调用一次 `run_command` 工具拉起后台进程：
-1. **建立隔离分支**：通过 `run_command` 执行 `git worktree add ../worktree-{taskId}`
-2. **派发后台任务**：针对该 worktree 目录，调用 `run_command`（通过配置 `WaitMsBeforeAsync: 5000` 让其进入后台任务池）：
-   - `CommandLine`: `agy --agent {分配的Agent名} -p "详细Prompt..."` (如果环境中是 Claude Code，则替换为 `claude --model ... -p "..."`)
-   - `Cwd`: 刚创建的 `../worktree-{taskId}` 目录
-3. 重复以上步骤，将同 Wave 的任务全部投递为独立后台任务（Background Tasks）。
-4. 投递完毕后，**主控停止调用工具结束回合**。利用系统的异步唤醒机制，当所有后台 `agy` 进程完成后，系统会自动给你发消息。
+#### 环境 B：在 Claude Code 引擎下
+由于缺乏内置 Subagent API，主控需转变为“Shell 脚本调度者”角色：
+1. 建立独立沙盒：对本波每个任务，执行 `git worktree add ../worktree-{taskId}`。
+2. 并发拉起 CLI：进入各目录，根据三级路由规则追加对应的 `--model` 参数，并使用 `&` 放入后台执行：
+   ```bash
+   # 例：UI 任务分配给极速模型
+   cd ../worktree-001 && claude -p "{Prompt内容}" --model claude-3-5-haiku-20241022 &
+   # 例：底层框架分配给顶级模型
+   cd ../worktree-002 && claude -p "{Prompt内容}" --model claude-3-5-sonnet-20241022 &
+   wait
+   ```
+3. 执行 `wait` 等待所有进程结束后，进行后续合并。
 
 **通用 Agent Prompt 模板（传给上述底层进程）：**
 
