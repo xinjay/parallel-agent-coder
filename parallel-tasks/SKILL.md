@@ -107,7 +107,15 @@ Wave 4（串行）:
 **Wave 1**：直接基于当前主分支开始。
 **Wave N（N>1）**：必须在上一 Wave 合并完成后，基于最新主分支创建 worktree。这确保每个 agent 能引用前序 Wave 产出的接口/类。
 
-### 5b. 获取可用模型池 (Model Discovery)
+### 5b. 预申请前置权限 (Pre-grant Permissions)
+
+**非常重要：** 由于底层的安全沙盒机制，在后台静默运行的子 Agent 无法弹出权限确认框，缺乏权限时会直接报错奔溃。因此，在每次派发 Wave 的子 Agent 之前，**主控必须**主动调用一次 `ask_permission` 工具，提前为子 Agent 申请好当前工程所需的关键权限（由于权限申请需要用户点击，请合并在一次工具调用中发出）：
+- `Action: write_file`, `Target: {WorkspaceRoot}`
+- `Action: command`, `Target: *` (允许子 Agent 自由执行 git commit 和编译脚本)
+
+如果检查当前权限（通过 `list_permissions`）发现已经拥有 allowed 状态，则可跳过申请。
+
+### 5c. 获取可用模型池 (Model Discovery)
 
 在派发任何任务前，主控 Session 必须通过命令行（如 `agy models`）或系统指令获取当前环境内**所有可使用的模型列表**。
 根据返回的模型池，**主控需自主评估并挑选出三个档次的模型**（若资源有限可向下合并）：
@@ -117,7 +125,7 @@ Wave 4（串行）:
 
 将这三个模型暂存在主控的上下文中，供后续调度使用。
 
-### 5c. 分派 Agents (兼容 agy / claude 双引擎与三级模型协同)
+### 5d. 分派 Agents (兼容 agy / claude 双引擎与三级模型协同)
 
 主控 Session 需识别当前的运行环境，并根据任务的 `类型` 列动态路由到 5b 中挑选出的物理模型，以追求极致的性价比。
 
@@ -195,14 +203,14 @@ Wave 4（串行）:
 4. 是否有偏差需要记录
 ```
 
-### 5c. 等待 Wave 完成
+### 5e. 等待 Wave 完成
 
 所有当前 Wave 的 agents 完成后：
 1. 收集每个 agent 的执行结果和 commit hash
 2. 检查是否有失败的任务
 3. 汇总报告给用户
 
-### 5d. 失败处理
+### 5f. 失败处理
 
 | 情况 | 操作 |
 |------|------|
@@ -210,7 +218,7 @@ Wave 4（串行）:
 | Agent 超时 | 标记任务为未完成，继续下一 Wave |
 | 文件冲突 | 合并 worktree 时解决冲突（应极少发生，因同 Wave 无依赖） |
 
-### 5e. Wave 间过渡（L2 验收）
+### 5g. Wave 间过渡（L2 验收）
 
 当前 Wave 的所有 agent 均宣称完成后：
 1. **统一 Code Review**：主 session 唤起 `agent-quality-checker` 子 Agent，触发 `slg-code-review` 技能，对本 Wave 产出的各个分支代码进行两阶段审查。审查不通过则打回修复。
