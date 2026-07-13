@@ -127,9 +127,9 @@ Wave 4（串行）:
 - **Mid-tier (中坚)**：分配给 `复杂业务逻辑`，用于常规 Controller 和机制的具体实现。
 - **Fast-tier (极速)**：分配给 `配置`、`UI 视图`、`工具` 等周边和单点填表任务。
 
-#### 环境 A：在 Antigravity (agy) 引擎下
+#### 环境 A：在 Antigravity (agy) 引擎下（首选完美方案）
 由于系统目前存在读取静态 `.md` Agent 时忽略写入权限的 Bug，并且考虑到不同档次的 Agent 提示词高度重合，我们采用“**读取单一基础模板并衍生注册**”的方式动态加载：
-1. **读取单模板并动态注册 (绕开限制)**：在派发前，**主控必须**使用 `view_file` 工具去 `E:\Project\slg\.agents\agent_templates\` 目录下读取唯一的公共基础模板 `agent-slg-dev-base.md`，提取其系统提示词正文。然后使用 `define_subagent` 工具，根据当前需要的档次在内存中动态注册对应的 Agent（分别命名为 `agent-slg-dev-ultra`、`agent-slg-dev-mid` 或 `agent-slg-dev-fast`）。**必须强制设置 `enable_write_tools = true`**，并直接使用刚才读取到的这份通用提示词。（注：动态注册的子 Agent 会强制继承当前主控的模型算力，API 不支持指定特定模型）。
+1. **读取单模板并动态注册 (绕开限制)**：在派发前，**主控必须**使用 `view_file` 工具去 `E:\Project\slg\.agents\agent_templates\` 目录下读取唯一的公共基础模板 `agent-slg-dev-base.md`，提取其系统提示词正文。然后使用 `define_subagent` 工具，根据当前需要的档次在内存中动态注册对应的 Agent（分别命名为 `agent-slg-dev-ultra`、`agent-slg-dev-mid` 或 `agent-slg-dev-fast`）。**除了强制设置 `enable_write_tools = true` 拿回权限，主控还必须传入 `model` 字段（Ultra 档传入 `Gemini 3.1 Pro (High)`，Mid 档传入 `Gemini 3.1 Pro (Low)`，Fast 档传入 `Gemini 3.5 Flash (Medium)`）**。在 `v1.1.1` 之后，系统已支持该参数生效，从而实现完美的算力分档。
 2. 对本波次的每个任务，调用内置的 `invoke_subagent` 工具执行并发派发：
 - `Workspace`: `share`（自动利用底层类似 worktree 的隔离沙盒）。
 - `TypeName`: 必须使用刚才动态注册的原名称（如 `agent-slg-dev-ultra`）。

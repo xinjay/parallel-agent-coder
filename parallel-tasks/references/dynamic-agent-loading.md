@@ -66,20 +66,14 @@ Antigravity 框架在 IDE 启动时会扫描 `.agents/agents/` 目录下的 `.md
    └─ TypeName 使用原名称（如 agent-slg-dev-ultra）
 ```
 
-### 动态注册的模型继承机制（局限性）
+### 动态注册的模型继承机制（已修复）
 
-经过交叉验证确认，Antigravity 内置的 `define_subagent` 工具**不支持**指定物理模型。
-虽然传入 `model` 字段不会导致 API 报错，但底层实际会忽略该参数。任何通过动态注册衍生的子 Agent，都会**强制继承当前主控会话的模型算力**。
-- 如果主控切到了 Claude Sonnet，所有子 Agent 都是 Claude Sonnet。
-- 如果主控切到了 Gemini Pro High，所有子 Agent 都是 Gemini Pro High。
+在早期的 Antigravity 引擎中，`define_subagent` 工具不支持指定物理模型，会强制继承主控。
+但**经过最新版本 (v1.1.1) 验证，该系统 Bug 已被官方修复**。
+现在，你可以通过在 `define_subagent` 中额外传入 `model` 字段，实现真正的物理算力分档，子 Agent 将不再强制继承主控模型。
 
-因此，环境 A（Antigravity 引擎内置 API）下，虽然完美解决了写权限和模板冗余问题，但**目前暂时牺牲了物理算力的分档降级能力**（任务仍然会有逻辑分工的差异，只是成本无法拆分）。
-
-**终极控费降级方案 (环境 B)**
-如果您对算力成本有严格要求，必须抛弃内置的 `invoke_subagent`，退化为使用命令行脚本。
-根据官方 Codelab，Antigravity CLI 在 `v1.0.7+` 版本中已经补齐了 `--model` 参数（当前本地版本为 `1.1.1`）。
-因此，您可以通过在终端执行类似如下的命令，在后台拉起真正低算力的独立 `agy` 进程，从而实现物理分档：
-`agy -p "..." --model "Gemini 3.5 Flash (Medium)" &`
+因此，环境 A（Antigravity 引擎内置 API）目前是**完美方案**，既解决了写权限 Bug，又实现了精细化的物理算力控费，同时保留了内置并发调度的绝佳 UI 体验。
+（*注：下文所述的环境 B 仅作为极端情况下的备用 Shell 方案，日常不推荐使用。*）
 
 ### 三级业务路由规范
 
