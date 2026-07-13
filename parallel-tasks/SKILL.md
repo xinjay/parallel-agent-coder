@@ -103,8 +103,7 @@ Wave 4（串行）:
 **非常重要：** 由于底层的安全沙盒机制，在后台静默运行的子 Agent 无法弹出权限确认框，缺乏权限时会直接报错奔溃。因此，在每次派发 Wave 的子 Agent 之前，**主控必须**主动使用 `ask_permission` 工具，提前为子 Agent 申请好当前工程所需的关键权限（由于权限申请需要用户点击，请利用并发工具调用能力，在同一轮交互中并发发起多个 `ask_permission` 请求）：
 - `Action: write_file`, `Target: {WorkspaceRoot绝对路径}` (提供当前工作区的完整绝对路径)
 - `Action: command`, `Target: git` (允许子 Agent 自由执行 git commit 等)
-- `Action: command`, `Target: bash` (如果需要执行编译脚本如 bash .claude/verify-compile.sh)
-- **严禁**使用 `Target: *` 通配符申请 command 权限，必须明确列出所需要的具体命令前缀（如 `git`, `bash`, `dotnet` 等）。
+- **严禁**使用 `Target: *` 通配符申请 command 权限，必须明确列出所需要的具体命令前缀（如 `git` 等）。
 
 如果检查当前权限（通过 `list_permissions`）发现已经拥有 allowed 状态，则可跳过对应申请。
 
@@ -165,16 +164,14 @@ Wave 4（串行）:
 1. 读取 spec 文件，理解任务目标和实现要点
 2. 读取 spec 中「关键现有代码」列出的所有文件
 3. 按 spec「实现要点」逐条实现
-4. 实现完成后执行编译验证：bash .claude/verify-compile.sh
-5. 对照 spec「验收标准」自查
-6. 验收通过后，git commit 本次任务所有变更（提交信息格式见下方）
+4. 对照 spec「验收标准」自查
+5. 验收通过后，git commit 本次任务所有变更（提交信息格式见下方）
 
 ## Git Commit 规范（强制）
-任务完成且编译通过后，必须立即 commit：
+任务完成后，必须立即 commit（不需要在本地执行编译，后续将由主控统一合并编译）：
 - 格式：`feat: {需求标题} [Agent]`
 - 示例：`feat: IInteractProvider接口与InteractItem数据结构 [Agent]`
 - 只 add 本任务新建/修改的文件，禁止 `git add -A`
-- 如果编译未通过，不得 commit，报告错误等待主 session 处理
 
 ## 强制规范
 - **【全局约定】**在动手前必须读取并严格遵守当前项目的全局 AI 约定（如 `AGENTS.md`）。
@@ -193,9 +190,8 @@ Wave 4（串行）:
 ## 产出要求
 完成后报告：
 1. 新建/修改了哪些文件（附 git commit hash）
-2. 编译是否通过
-3. 验收标准的通过情况
-4. 是否有偏差需要记录
+2. 验收标准的通过情况
+3. 是否有偏差需要记录
 ```
 
 ### 5e. 等待 Wave 完成
@@ -209,7 +205,7 @@ Wave 4（串行）:
 
 | 情况 | 操作 |
 |------|------|
-| 编译错误 | 展示错误，询问用户是否手动修复后继续 |
+| 合并编译错误 | Wave 合并后主控发现编译报错时，将错误抛出，等待修复或重新指派子 Agent |
 | Agent 超时 | 标记任务为未完成，继续下一 Wave |
 | 文件冲突 | 合并 worktree 时解决冲突（应极少发生，因同 Wave 无依赖） |
 
@@ -294,8 +290,8 @@ git branch | grep worktree-agent | xargs git branch -d
 
 | 级别 | 时机 | 执行者 | 内容 |
 |------|------|--------|------|
-| **L1 Agent 自查** | 每个 agent 完成时（worktree 内） | agent 自身 | 编译通过 + spec 验收标准逐条 + git commit |
-| **L2 Wave 合并验收** | 同 Wave 全部完成合并前后 | Quality Checker & 主 session | Code Review + 合并编译 + 接口衔接 + 单测运行 |
+| **L1 Agent 自查** | 每个 agent 完成时（worktree 内） | agent 自身 | spec 验收标准逐条检查 + git commit（不再独立执行编译） |
+| **L2 Wave 合并验收** | 同 Wave 全部完成合并前后 | Quality Checker & 主 session | Code Review + 合并后全局编译 + 接口衔接 + 单测运行 |
 | **L3 端到端验收** | 所有 Wave 完成后 | 主 session / 验收任务 agent | Play 模式完整流程验证 |
 
 ---
@@ -306,8 +302,8 @@ git branch | grep worktree-agent | xargs git branch -d
 - **禁止跨 Wave 并行**：必须上一 Wave 全部完成并合并后才开始下一 Wave
 - **Worktree 清理**：所有任务验收通过、文档同步完成且用户确认没问题后，必须执行 Step 6e 清理全部临时 worktree 目录和对应本地分支，禁止验收前清理
 - **Worktree 隔离**：同 Wave 的 agents 必须使用独立 worktree，防止文件冲突
-- **编译守门**：每个 Wave 合并后必须通过编译验证才能继续
-- **Git Commit 强制**：每个 agent 完成任务且编译通过后必须 commit，格式 `feat: {标题} [Agent]`
+- **全局编译守门**：每个 Wave 的所有 worktree 合并回主分支后，主控必须执行统一的编译验证，通过后才能继续
+- **Git Commit 强制**：每个 agent 完成代码编写并自查通过后即可 commit，格式 `feat: {标题} [Agent]`
 - **合并策略**：Wave 合并使用 `merge --no-ff`，保留每个任务的独立 commit 历史
 - **策划案只读**：任何情况下不修改任何策划相关目录（如 `策划文档/`、`策划案/` 及其子目录）下的文件
 - **spec 引用不猜测**：agent prompt 中必须包含实际 spec 路径，不使用占位符
