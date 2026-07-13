@@ -73,7 +73,13 @@ Antigravity 框架在 IDE 启动时会扫描 `.agents/agents/` 目录下的 `.md
 - 如果主控切到了 Claude Sonnet，所有子 Agent 都是 Claude Sonnet。
 - 如果主控切到了 Gemini Pro High，所有子 Agent 都是 Gemini Pro High。
 
-因此，环境 A（Antigravity 引擎）下，虽然完美解决了写权限和模板冗余问题，但**目前暂时牺牲了物理算力的分档降级能力**（任务仍然会有逻辑分工的差异，只是成本无法拆分）。未来如需严格控费降级，需考虑退化为使用命令行拉起独立 `agy` 进程（环境 B）的模式。
+因此，环境 A（Antigravity 引擎内置 API）下，虽然完美解决了写权限和模板冗余问题，但**目前暂时牺牲了物理算力的分档降级能力**（任务仍然会有逻辑分工的差异，只是成本无法拆分）。
+
+**终极控费降级方案 (环境 B)**
+如果您对算力成本有严格要求，必须抛弃内置的 `invoke_subagent`，退化为使用命令行脚本。
+根据官方 Codelab，Antigravity CLI 在 `v1.0.7+` 版本中已经补齐了 `--model` 参数（当前本地版本为 `1.1.1`）。
+因此，您可以通过在终端执行类似如下的命令，在后台拉起真正低算力的独立 `agy` 进程，从而实现物理分档：
+`agy -p "..." --model "Gemini 3.5 Flash (Medium)" &`
 
 ### 三级业务路由规范
 

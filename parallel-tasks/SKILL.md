@@ -136,18 +136,18 @@ Wave 4（串行）:
 - `Role`: **必须在展示名中明确包含所分配的具体模型名称**（例如：`INT-C-001 (Gemini 1.5 Pro)` 或 `UI 调整 (Gemini Flash)`），以便用户在 UI 会话列表中直观区分每个 Subagent 的算力级别。
 - **运行方式**：利用工具的并发调用特性，直接并行派发。
 
-#### 环境 B：在 Claude Code 引擎下
-由于缺乏内置 Subagent API，主控需转变为“Shell 脚本调度者”角色：
-1. 建立独立沙盒：对本波每个任务，执行 `git worktree add ../worktree-{taskId}`。
-2. 并发拉起 CLI：进入各目录，根据三级路由规则追加对应的 `--model` 参数，并使用 `&` 放入后台执行：
+#### 环境 B：退回终端使用 Shell 脚本调度 (当前唯一实现算力分档的方法)
+由于环境 A 中的 `define_subagent` 目前存在“强制继承主控模型”的局限，如果任务对**算力成本控制**有严格要求，必须采用此方案：
+1. **建立独立沙盒**：对本波每个任务，执行 `git worktree add ../worktree-{taskId}`（或复制目录）建立物理隔离。
+2. **并发拉起 CLI**：进入各目录，根据三级路由规则追加对应的 `--model` 参数，并使用 `&` 放入后台执行：
    ```bash
-   # 例：UI 任务分配给极速模型
-   cd ../worktree-001 && claude -p "{Prompt内容}" --model claude-3-5-haiku-20241022 &
-   # 例：底层框架分配给顶级模型
-   cd ../worktree-002 && claude -p "{Prompt内容}" --model claude-3-5-sonnet-20241022 &
+   # 例：杂活任务分配给 Fast 档模型
+   cd ../worktree-001 && agy -p "{Prompt内容}" --model "Gemini 3.5 Flash (Medium)" &
+   # 例：底层框架分配给 Ultra 档模型
+   cd ../worktree-002 && agy -p "{Prompt内容}" --model "Gemini 3.1 Pro (High)" &
    wait
    ```
-3. 执行 `wait` 等待所有进程结束后，进行后续合并。
+3. **轮询状态**：执行 `wait` 等待所有进程结束后，检查状态并进行后续合并。
 
 **通用 Agent Prompt 模板（传给上述底层进程）：**
 
