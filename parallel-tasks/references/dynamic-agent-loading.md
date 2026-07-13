@@ -66,12 +66,16 @@ Antigravity 框架在 IDE 启动时会扫描 `.agents/agents/` 目录下的 `.md
    └─ TypeName 使用原名称（如 agent-slg-dev-ultra）
 ```
 
-### model 隐藏参数
+### 动态注册的模型继承机制（局限性）
 
-`define_subagent` 工具的官方 Schema 中未公开 `model` 字段，但底层实际支持该参数。
-通过在调用时额外传入 `"model": "<模型名>"` 的 JSON 字段，可以精确控制子 Agent 的物理算力分档，而不是强制继承主控的模型。
+经过交叉验证确认，Antigravity 内置的 `define_subagent` 工具**不支持**指定物理模型。
+虽然传入 `model` 字段不会导致 API 报错，但底层实际会忽略该参数。任何通过动态注册衍生的子 Agent，都会**强制继承当前主控会话的模型算力**。
+- 如果主控切到了 Claude Sonnet，所有子 Agent 都是 Claude Sonnet。
+- 如果主控切到了 Gemini Pro High，所有子 Agent 都是 Gemini Pro High。
 
-### 三级算力路由规则
+因此，环境 A（Antigravity 引擎）下，虽然完美解决了写权限和模板冗余问题，但**目前暂时牺牲了物理算力的分档降级能力**（任务仍然会有逻辑分工的差异，只是成本无法拆分）。未来如需严格控费降级，需考虑退化为使用命令行拉起独立 `agy` 进程（环境 B）的模式。
+
+### 三级业务路由规范
 
 | 档次 | Agent 名称 | 模型 | 适用任务类型 |
 |-----|-----------|------|------------|
